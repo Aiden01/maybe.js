@@ -1,14 +1,40 @@
 export const Just = <T>(value: T) => new Maybe(false, value);
 export const Nothing = <T>() => new Maybe<T>(true);
 
-export class Maybe<T> {
-	constructor(private nothing: boolean, private value?: T) {}
+interface Monad<T> {
+	bind: <A>(f: (_: T) => Monad<A>) => Monad<A>;
+}
 
-	map<A>(f: (value: T) => A): Maybe<A> {
+interface Functor<T> {
+	fmap: <A>(f: (_: T) => A) => Functor<A>;
+}
+
+interface Applicative<T> {
+	apply: <A>(f: Functor<T>) => Functor<A>;
+}
+
+export class Maybe<T> implements Monad<T>, Functor<T>, Applicative<T> {
+	constructor(private nothing: boolean, private value?: T) {}
+	bind<A>(f: (value: T) => Monad<A>): Monad<A> {
+		if (this.isNothing()) {
+			return Nothing();
+		}
+		return f(this.fromJust());
+	}
+
+	fmap<A>(f: (value: T) => A): Maybe<A> {
 		if (this.isNothing()) {
 			return Nothing();
 		}
 		return Just(f(this.value));
+	}
+
+	apply<A>(f: Functor<T>): Functor<A> {
+		if (this.isNothing()) {
+			return Nothing();
+		}
+		const fn = this.fromJust() as unknown;
+		return f.fmap(fn as (_: T) => A);
 	}
 
 	isJust(): boolean {
@@ -55,5 +81,15 @@ export class Maybe<T> {
 			return Nothing();
 		}
 		return Just(value);
+	}
+
+	eq(m: Maybe<T>): boolean {
+		if (m.isJust() && this.isJust()) {
+			return m.fromJust() === this.fromJust();
+		}
+		if (m.isNothing() && this.isNothing()) {
+			return true;
+		}
+		return false;
 	}
 }
